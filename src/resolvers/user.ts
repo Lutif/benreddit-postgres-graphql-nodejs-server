@@ -39,10 +39,20 @@ class UserResponse {
 
 @Resolver()
 export class UserResolver {
+  @Query(() => UserResponse)
+  async me(@Ctx() { em, req }: ApolloContext) {
+    const userid = req.session.userId;
+    if (!userid) {
+      return { errors: [{ field: "user", error: "Unauthorized" }] };
+    }
+    const user = await em.findOne(User, { id: userid });
+    return { user };
+  }
+
   @Mutation(() => UserResponse)
   async register(
     @Arg("options") options: UsernamePasswordInput,
-    @Ctx() { em }: ApolloContext
+    @Ctx() { em, req }: ApolloContext
   ) {
     const errors: FieldError[] = [];
     const userExist = await em.findOne(User, { username: options.username });
@@ -75,14 +85,15 @@ export class UserResolver {
       password: hashedPassword,
     });
     await em.persistAndFlush(user);
-    console.log("user is");
+    req.session.userId = user.id;
+    console.log("user is", req.session);
     return { user };
   }
 
   @Query(() => UserResponse)
   async login(
     @Arg("options") options: UsernamePasswordInput,
-    @Ctx() { em }: ApolloContext
+    @Ctx() { em, req }: ApolloContext
   ) {
     const user = await em.findOne(User, { username: options.username });
     if (!user) {
@@ -95,6 +106,7 @@ export class UserResolver {
     if (!isCorrectPassword) {
       return { errors: [{ field: "user", error: "Invalid cardentials" }] };
     }
+    req.session.userId = user.id;
     return { user };
   }
 }

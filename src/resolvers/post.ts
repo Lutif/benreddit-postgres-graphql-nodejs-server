@@ -1,5 +1,5 @@
 import { Post } from "../entities/Post";
-import { Arg, Args, Ctx, Int, Mutation, Query, Resolver } from "type-graphql";
+import { Arg, Ctx, Int, Mutation, Query, Resolver } from "type-graphql";
 import { ApolloContext } from "../types";
 
 @Resolver()
