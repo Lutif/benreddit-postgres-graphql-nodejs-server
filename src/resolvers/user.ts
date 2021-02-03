@@ -11,6 +11,7 @@ import {
   Query,
   Resolver,
 } from "type-graphql";
+import { COOKIE_NAME_ } from "../constants";
 
 @InputType()
 class UsernamePasswordInput {
@@ -90,7 +91,7 @@ export class UserResolver {
     return { user };
   }
 
-  @Query(() => UserResponse)
+  @Mutation(() => UserResponse)
   async login(
     @Arg("options") options: UsernamePasswordInput,
     @Ctx() { em, req }: ApolloContext
@@ -108,5 +109,14 @@ export class UserResolver {
     }
     req.session.userId = user.id;
     return { user };
+  }
+
+  @Mutation(() => Boolean)
+  logout(@Ctx() { req, res }: ApolloContext) {
+    console.log("loggin out");
+    res.clearCookie(COOKIE_NAME_);
+    return new Promise((resolve) =>
+      req.session.destroy((error) => (error ? resolve(false) : resolve(true)))
+    );
   }
 }
