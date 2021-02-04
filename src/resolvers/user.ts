@@ -41,23 +41,24 @@ class UserResponse {
 @Resolver()
 export class UserResolver {
   @Query(() => UserResponse)
-  async me(@Ctx() { em, req }: ApolloContext) {
+  async me(@Ctx() { req }: ApolloContext) {
     const userid = req.session.userId;
     if (!userid) {
       return { errors: [{ field: "user", error: "Unauthorized" }] };
     }
-    const user = await em.findOne(User, { id: userid });
+    const user = await User.findOne(userid);
     return { user };
   }
 
   @Mutation(() => UserResponse)
   async register(
     @Arg("options") options: UsernamePasswordInput,
-    @Ctx() { em, req }: ApolloContext
+    @Ctx() { req }: ApolloContext
   ) {
     const errors: FieldError[] = [];
-    const userExist = await em.findOne(User, { username: options.username });
-    console.log("user already exist", userExist);
+    const userExist = await User.findOne({
+      where: { username: options.username },
+    });
 
     if (userExist && userExist?.id > -1) {
       errors.push({
@@ -81,22 +82,20 @@ export class UserResolver {
       return { errors };
     }
     const hashedPassword = await argon2.hash(options.password);
-    const user = em.create(User, {
+    const user = await User.create({
       username: options.username,
       password: hashedPassword,
-    });
-    await em.persistAndFlush(user);
+    }).save();
     req.session.userId = user.id;
-    console.log("user is", req.session);
     return { user };
   }
 
   @Mutation(() => UserResponse)
   async login(
     @Arg("options") options: UsernamePasswordInput,
-    @Ctx() { em, req }: ApolloContext
+    @Ctx() { req }: ApolloContext
   ) {
-    const user = await em.findOne(User, { username: options.username });
+    const user = await User.findOne({ where: { username: options.username } });
     if (!user) {
       return { errors: [{ field: "user", error: "Invalid cardentials" }] };
     }
@@ -113,7 +112,6 @@ export class UserResolver {
 
   @Mutation(() => Boolean)
   logout(@Ctx() { req, res }: ApolloContext) {
-    console.log("loggin out");
     res.clearCookie(COOKIE_NAME_);
     return new Promise((resolve) =>
       req.session.destroy((error) => (error ? resolve(false) : resolve(true)))

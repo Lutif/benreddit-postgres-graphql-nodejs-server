@@ -1,58 +1,47 @@
 import { Post } from "../entities/Post";
-import { Arg, Ctx, Int, Mutation, Query, Resolver } from "type-graphql";
-import { ApolloContext } from "../types";
+import { Arg, Int, Mutation, Query, Resolver } from "type-graphql";
 
 @Resolver()
 export class PostResolver {
   @Query(() => [Post])
-  posts(@Ctx() { em }: ApolloContext) {
-    return em.find(Post, {});
+  posts() {
+    return Post.find();
   }
 
   @Query(() => Post, { nullable: true })
   post(
     @Arg("id", () => Int)
-    id: number,
-    @Ctx() { em }: ApolloContext
-  ): Promise<Post | null> {
-    return em.findOne(Post, { id });
+    id: number
+  ): Promise<Post | undefined> {
+    return Post.findOne(id);
   }
 
   @Mutation(() => Post)
-  async createPost(
-    @Arg("title") title: string,
-    @Ctx() { em }: ApolloContext
-  ): Promise<Post> {
-    const post = em.create(Post, { title });
-    await em.persistAndFlush(post);
-    console.log("post created", post);
+  async createPost(@Arg("title") title: string): Promise<Post> {
+    const post = await Post.create({ title }).save();
     return post;
   }
 
   @Mutation(() => Post, { nullable: true })
   async updatePost(
     @Arg("title", { nullable: true }) title: string,
-    @Arg("id") id: number,
-    @Ctx() { em }: ApolloContext
+    @Arg("id") id: number
   ): Promise<Post | null> {
-    const post = await em.findOne(Post, { id });
+    const post = await Post.findOne(id);
     if (!post) {
       return null;
     }
     if (title) {
       post.title = title;
-      await em.persistAndFlush(post);
+      await post.save();
     }
     return post;
   }
 
   @Mutation(() => Boolean)
-  async deletePost(
-    @Arg("id") id: number,
-    @Ctx() { em }: ApolloContext
-  ): Promise<boolean> {
+  async deletePost(@Arg("id") id: number): Promise<boolean> {
     try {
-      await em.nativeDelete(Post, { id });
+      await Post.delete(id);
       return true;
     } catch (error) {
       return false;
