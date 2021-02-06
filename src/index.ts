@@ -24,6 +24,7 @@ const main = async () => {
   });
   // const orm = await MikroORM.init(mikroORMConfig);
   // await orm.getMigrator().up();
+
   const app = express();
 
   app.use(

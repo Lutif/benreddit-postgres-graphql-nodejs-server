@@ -1,11 +1,52 @@
 import { Post } from "../entities/Post";
-import { Arg, Int, Mutation, Query, Resolver } from "type-graphql";
+import {
+  Arg,
+  Ctx,
+  Field,
+  FieldResolver,
+  InputType,
+  Int,
+  Mutation,
+  Query,
+  Resolver,
+  Root,
+  UseMiddleware,
+} from "type-graphql";
+import { ApolloContext } from "../types";
+import { isAuthenticated } from "../middleware";
+import { getConnection } from "typeorm";
 
-@Resolver()
+@InputType()
+class PostInput {
+  @Field()
+  title: string;
+  @Field()
+  text: string;
+}
+
+@Resolver(Post)
 export class PostResolver {
+  @FieldResolver(() => String)
+  textSnippet(@Root() root: Post) {
+    return root.text.slice(0, 50);
+  }
+
   @Query(() => [Post])
-  posts() {
-    return Post.find();
+  posts(
+    @Arg("limit", () => Int) limit: number,
+    @Arg("cursor", () => String, { nullable: true }) cursor: string
+  ): Promise<Post[]> {
+    console.log("hello", limit, cursor);
+    const realLimit = Math.min(limit, 50);
+    const qb = getConnection()
+      .getRepository(Post)
+      .createQueryBuilder("p")
+      .orderBy('"createdAt"', "DESC")
+      .take(realLimit);
+    if (cursor) {
+      qb.where('"createdAt"< :cursor', { cursor: new Date(parseInt(cursor)) });
+    }
+    return qb.getMany();
   }
 
   @Query(() => Post, { nullable: true })
@@ -17,8 +58,17 @@ export class PostResolver {
   }
 
   @Mutation(() => Post)
-  async createPost(@Arg("title") title: string): Promise<Post> {
-    const post = await Post.create({ title }).save();
+  @UseMiddleware(isAuthenticated)
+  async createPost(
+    @Arg("options") options: PostInput,
+    @Ctx() { req }: ApolloContext
+  ): Promise<Post> {
+    const post = await Post.create({
+      title: options.title,
+      text: options.text,
+      creatorId: req.session.userId,
+    }).save();
+    post.creatorId;
     return post;
   }
 
